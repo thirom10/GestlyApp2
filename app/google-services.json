@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "71031363142",
+    "project_id": "gestlycel",
+    "storage_bucket": "gestlycel.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:71031363142:android:a36c60e973033722e6dc47",
+        "android_client_info": {
+          "package_name": "com.example.gestlyapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAK6_Xb4WbaoCxexy1gsrHrnjJS3EiWLnM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
