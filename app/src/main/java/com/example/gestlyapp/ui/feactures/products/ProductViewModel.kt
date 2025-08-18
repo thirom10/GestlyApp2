@@ -9,14 +9,19 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import java.util.Date
 
 data class ProductUiState(
     val products: List<Product> = emptyList(),
     val searchQuery: String = "",
     val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val hasMoreProducts: Boolean = true,
+    val currentPage: Int = 0
 )
 
 data class AddProductUiState(
@@ -51,18 +56,31 @@ class ProductViewModel(
     private val _addProductUiState = MutableStateFlow(AddProductUiState())
     val addProductUiState: StateFlow<AddProductUiState> = _addProductUiState.asStateFlow()
     
+    // Caché local para productos
+    private var cachedProducts: List<Product> = emptyList()
+    private var searchJob: Job? = null
+    private val pageSize = 20
+    
     init {
         loadProducts()
     }
     
     fun loadProducts() {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true)
+            _uiState.value = _uiState.value.copy(
+                isLoading = true,
+                currentPage = 0,
+                hasMoreProducts = true
+            )
             try {
-                repository.getProducts().collect { products ->
+                repository.getProducts().collect { allProducts ->
+                    cachedProducts = allProducts
+                    val paginatedProducts = allProducts.take(pageSize)
                     _uiState.value = _uiState.value.copy(
-                        products = products,
-                        isLoading = false
+                        products = paginatedProducts,
+                        isLoading = false,
+                        hasMoreProducts = allProducts.size > pageSize,
+                        currentPage = 1
                     )
                 }
             } catch (e: Exception) {
@@ -74,21 +92,70 @@ class ProductViewModel(
         }
     }
     
+    fun loadMoreProducts() {
+        val currentState = _uiState.value
+        if (currentState.isLoadingMore || !currentState.hasMoreProducts) return
+        
+        _uiState.value = currentState.copy(isLoadingMore = true)
+        
+        viewModelScope.launch {
+            try {
+                val nextPage = currentState.currentPage
+                val startIndex = nextPage * pageSize
+                val endIndex = minOf(startIndex + pageSize, cachedProducts.size)
+                
+                if (startIndex < cachedProducts.size) {
+                    val newProducts = cachedProducts.subList(startIndex, endIndex)
+                    val updatedProducts = currentState.products + newProducts
+                    
+                    _uiState.value = currentState.copy(
+                        products = updatedProducts,
+                        isLoadingMore = false,
+                        hasMoreProducts = endIndex < cachedProducts.size,
+                        currentPage = nextPage + 1
+                    )
+                } else {
+                    _uiState.value = currentState.copy(
+                        isLoadingMore = false,
+                        hasMoreProducts = false
+                    )
+                }
+            } catch (e: Exception) {
+                _uiState.value = currentState.copy(
+                    isLoadingMore = false,
+                    errorMessage = "Error al cargar más productos: ${e.message}"
+                )
+            }
+        }
+    }
+    
     fun searchProducts(query: String) {
         _uiState.value = _uiState.value.copy(searchQuery = query)
+        
+        // Cancelar búsqueda anterior
+        searchJob?.cancel()
         
         if (query.isBlank()) {
             loadProducts()
             return
         }
         
-        viewModelScope.launch {
+        // Debounce de 300ms para optimizar rendimiento
+        searchJob = viewModelScope.launch {
+            delay(300)
             try {
+                _uiState.value = _uiState.value.copy(isLoading = true)
                 repository.searchProducts(query).collect { products ->
-                    _uiState.value = _uiState.value.copy(products = products)
+                    _uiState.value = _uiState.value.copy(
+                        products = products,
+                        isLoading = false,
+                        hasMoreProducts = false, // Desactivar paginación en búsqueda
+                        currentPage = 0
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
+                    isLoading = false,
                     errorMessage = "Error en la búsqueda: ${e.message}"
                 )
             }
@@ -152,6 +219,8 @@ class ProductViewModel(
                         _addProductUiState.value = AddProductUiState(
                             successMessage = "Producto agregado exitosamente"
                         )
+                        // Recargar productos para actualizar caché
+                        loadProducts()
                     },
                     onFailure = { error ->
                         _addProductUiState.value = _addProductUiState.value.copy(
@@ -176,5 +245,10 @@ class ProductViewModel(
     
     fun clearSuccess() {
         _addProductUiState.value = _addProductUiState.value.copy(successMessage = null)
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        searchJob?.cancel()
     }
 }

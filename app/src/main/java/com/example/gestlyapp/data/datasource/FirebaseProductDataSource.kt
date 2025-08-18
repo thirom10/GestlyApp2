@@ -53,10 +53,10 @@ class FirebaseProductDataSource : ProductDataSource {
                             purchasePrice = document.getDouble("purchasePrice") ?: 0.0,
                             sellingPrice = document.getDouble("sellingPrice") ?: 0.0,
                             stock = document.getLong("stock")?.toInt() ?: 0,
-                            netWeight = document.getDouble("netWeight") ?: 0.0,
+                            netWeight = (document.getDouble("netWeight") ?: 0.0).toFloat(),
                             weightUnit = WeightUnit.valueOf(document.getString("weightUnit") ?: "MG"),
                             branch = document.getString("branch") ?: "",
-                            purchaseDate = document.getDate("purchaseDate"),
+                            purchaseDate = document.getDate("purchaseDate") as Long?,
                             uploadDate = document.getDate("uploadDate") ?: Date(),
                             editDate = document.getDate("editDate") ?: Date()
                         )

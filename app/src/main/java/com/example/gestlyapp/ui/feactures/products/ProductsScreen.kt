@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -40,6 +41,29 @@ fun ProductsScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
+    val listState = rememberLazyListState()
+    var debouncedSearchQuery by remember { mutableStateOf("") }
+    
+    // Debounce para la búsqueda (optimización de rendimiento)
+    LaunchedEffect(uiState.searchQuery) {
+        kotlinx.coroutines.delay(300) // Esperar 300ms antes de buscar
+        debouncedSearchQuery = uiState.searchQuery
+    }
+    
+    // Detectar cuando se llega al final de la lista para paginación
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val lastVisibleIndex = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+            lastVisibleIndex >= uiState.products.size - 5 // Cargar más cuando quedan 5 items
+        }
+    }
+    
+    // Efecto para cargar más productos cuando sea necesario
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore && !uiState.isLoading && uiState.products.isNotEmpty()) {
+            viewModel.loadMoreProducts()
+        }
+    }
     
     // Colores consistentes con la app
     val backgroundColor = Color(0xFF2C2C2C)
@@ -159,9 +183,13 @@ fun ProductsScreen(
                     }
                 } else {
                     LazyColumn(
+                        state = listState,
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(uiState.products) { product ->
+                        items(
+                            items = uiState.products,
+                            key = { product -> product.id } // Key para mejor rendimiento
+                        ) { product ->
                             ProductCard(
                                 product = product,
                                 cardBackground = cardBackground,
@@ -169,6 +197,23 @@ fun ProductsScreen(
                                 primaryBlue = primaryBlue,
                                 hintColor = hintColor
                             )
+                        }
+                        
+                        // Indicador de carga al final de la lista
+                        if (uiState.isLoading && uiState.products.isNotEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = primaryBlue,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                }
+                            }
                         }
                         
                         // Espacio extra para el FAB
