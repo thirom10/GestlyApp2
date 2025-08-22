@@ -13,7 +13,7 @@ import java.util.Date
 class FirebaseProductDataSource : ProductDataSource {
     private val firestore = FirebaseFirestore.getInstance()
     private val productsCollection = firestore.collection("products")
-    
+
     override suspend fun addProduct(product: Product): Result<String> {
         return try {
             val productData = mapOf(
@@ -24,18 +24,18 @@ class FirebaseProductDataSource : ProductDataSource {
                 "netWeight" to product.netWeight,
                 "weightUnit" to product.weightUnit.name,
                 "branch" to product.branch,
-                "purchaseDate" to product.purchaseDate,
+                "purchaseDate" to product.purchaseDate?.let { Date(it) }, // Convertir Long a Date
                 "uploadDate" to Date(),
                 "editDate" to Date()
             )
-            
+
             val documentRef = productsCollection.add(productData).await()
             Result.success(documentRef.id)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    
+
     override suspend fun getProducts(): Flow<List<Product>> = callbackFlow {
         val listener = productsCollection
             .orderBy("uploadDate", Query.Direction.DESCENDING)
@@ -44,7 +44,7 @@ class FirebaseProductDataSource : ProductDataSource {
                     close(error)
                     return@addSnapshotListener
                 }
-                
+
                 val products = snapshot?.documents?.mapNotNull { document ->
                     try {
                         Product(
@@ -56,21 +56,19 @@ class FirebaseProductDataSource : ProductDataSource {
                             netWeight = (document.getDouble("netWeight") ?: 0.0).toFloat(),
                             weightUnit = WeightUnit.valueOf(document.getString("weightUnit") ?: "MG"),
                             branch = document.getString("branch") ?: "",
-                            purchaseDate = document.getDate("purchaseDate") as Long?,
-                            uploadDate = document.getDate("uploadDate") ?: Date(),
-                            editDate = document.getDate("editDate") ?: Date()
+                            purchaseDate = document.getDate("purchaseDate")?.time
                         )
                     } catch (e: Exception) {
                         null
                     }
                 } ?: emptyList()
-                
+
                 trySend(products)
             }
-        
+
         awaitClose { listener.remove() }
     }
-    
+
     override suspend fun updateProduct(product: Product): Result<Unit> {
         return try {
             val productData = mapOf(
@@ -81,17 +79,17 @@ class FirebaseProductDataSource : ProductDataSource {
                 "netWeight" to product.netWeight,
                 "weightUnit" to product.weightUnit.name,
                 "branch" to product.branch,
-                "purchaseDate" to product.purchaseDate,
+                "purchaseDate" to product.purchaseDate?.let { Date(it) }, // Convertir Long a Date
                 "editDate" to Date()
             )
-            
+
             productsCollection.document(product.id).update(productData).await()
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
-    
+
     override suspend fun deleteProduct(productId: String): Result<Unit> {
         return try {
             productsCollection.document(productId).delete().await()
@@ -100,7 +98,7 @@ class FirebaseProductDataSource : ProductDataSource {
             Result.failure(e)
         }
     }
-    
+
     override suspend fun searchProducts(query: String): Flow<List<Product>> = callbackFlow {
         val listener = productsCollection
             .orderBy("name")
@@ -111,7 +109,7 @@ class FirebaseProductDataSource : ProductDataSource {
                     close(error)
                     return@addSnapshotListener
                 }
-                
+
                 val products = snapshot?.documents?.mapNotNull { document ->
                     try {
                         Product(
@@ -120,21 +118,19 @@ class FirebaseProductDataSource : ProductDataSource {
                             purchasePrice = document.getDouble("purchasePrice") ?: 0.0,
                             sellingPrice = document.getDouble("sellingPrice") ?: 0.0,
                             stock = document.getLong("stock")?.toInt() ?: 0,
-                            netWeight = document.getDouble("netWeight") ?: 0.0,
+                            netWeight = (document.getDouble("netWeight") ?: 0.0).toFloat(), // CORREGIDO: añadir .toFloat()
                             weightUnit = WeightUnit.valueOf(document.getString("weightUnit") ?: "MG"),
                             branch = document.getString("branch") ?: "",
-                            purchaseDate = document.getDate("purchaseDate"),
-                            uploadDate = document.getDate("uploadDate") ?: Date(),
-                            editDate = document.getDate("editDate") ?: Date()
+                            purchaseDate = document.getDate("purchaseDate")?.time // CORREGIDO: convertir Date a Long
                         )
                     } catch (e: Exception) {
                         null
                     }
                 } ?: emptyList()
-                
+
                 trySend(products)
             }
-        
+
         awaitClose { listener.remove() }
     }
 }

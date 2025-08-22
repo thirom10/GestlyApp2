@@ -35,7 +35,9 @@ data class AddProductUiState(
     val purchaseDate: Date? = null,
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val successMessage: String? = null
+    val successMessage: String? = null,
+    val isEditMode: Boolean = false,
+    val editingProductId: String? = null
 ) {
     val isFormValid: Boolean
         get() = name.isNotBlank() &&
@@ -204,14 +206,15 @@ class ProductViewModel(
             
             try {
                 val product = Product(
+                    id = state.editingProductId!!, // El ID es necesario para updateProduct
                     name = state.name,
                     purchasePrice = state.purchasePrice.toDouble(),
                     sellingPrice = state.sellingPrice.toDouble(),
                     stock = state.stock.toInt(),
-                    netWeight = state.netWeight.toDouble(),
+                    netWeight = state.netWeight.toFloat(),
                     weightUnit = state.weightUnit,
                     branch = state.branch,
-                    purchaseDate = state.purchaseDate
+                    purchaseDate = state.purchaseDate?.time // Usar .time para convertir Date a Long
                 )
                 
                 repository.addProduct(product).fold(
@@ -237,7 +240,72 @@ class ProductViewModel(
             }
         }
     }
-    
+
+    fun loadProductForEdit(productId: String) {
+        val product = _uiState.value.products.find { it.id == productId }
+        if (product != null) {
+            _addProductUiState.value = AddProductUiState(
+                name = product.name,
+                purchasePrice = product.purchasePrice.toString(),
+                sellingPrice = product.sellingPrice.toString(),
+                stock = product.stock.toString(),
+                netWeight = product.netWeight.toString(),
+                weightUnit = product.weightUnit,
+                branch = product.branch,
+                purchaseDate = product.purchaseDate?.let { Date(it) },
+                isEditMode = true,
+                editingProductId = product.id
+            )
+        }
+    }
+
+    fun updateProduct() {
+        val state = _addProductUiState.value
+        if (!state.isFormValid || !state.isEditMode || state.editingProductId == null) return
+        
+        viewModelScope.launch {
+            _addProductUiState.value = _addProductUiState.value.copy(isLoading = true)
+            
+            try {
+                val product = Product(
+                    name = state.name,
+                    purchasePrice = state.purchasePrice.toDouble(),
+                    sellingPrice = state.sellingPrice.toDouble(),
+                    stock = state.stock.toInt(),
+                    netWeight = state.netWeight.toFloat(),
+                    weightUnit = state.weightUnit,
+                    branch = state.branch,
+                    purchaseDate = state.purchaseDate as Long?
+                )
+                
+                repository.updateProduct(product).fold(
+                    onSuccess = {
+                        _addProductUiState.value = AddProductUiState(
+                            successMessage = "Producto actualizado exitosamente"
+                        )
+                        // Recargar productos para actualizar caché
+                        loadProducts()
+                    },
+                    onFailure = { error ->
+                        _addProductUiState.value = _addProductUiState.value.copy(
+                            isLoading = false,
+                            errorMessage = "Error al actualizar producto: ${error.message}"
+                        )
+                    }
+                )
+            } catch (e: Exception) {
+                _addProductUiState.value = _addProductUiState.value.copy(
+                    isLoading = false,
+                    errorMessage = "Error: ${e.message}"
+                )
+            }
+        }
+    }
+
+    fun clearForm() {
+        _addProductUiState.value = AddProductUiState()
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
         _addProductUiState.value = _addProductUiState.value.copy(errorMessage = null)

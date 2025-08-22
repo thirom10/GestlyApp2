@@ -61,7 +61,7 @@ fun AddProductScreen(
                 TopAppBar(
                     title = {
                         Text(
-                            text = "Agregar Producto",
+                            text = if (uiState.isEditMode) "Editar Producto" else "Agregar Producto",
                             color = textColor,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Medium
@@ -395,9 +395,15 @@ fun AddProductScreen(
                 
                 Spacer(modifier = Modifier.height(32.dp))
                 
-                // Botón Agregar Producto
+                // Botón Agregar/Editar Producto
                 Button(
-                    onClick = { viewModel.addProduct() },
+                    onClick = { 
+                        if (uiState.isEditMode) {
+                            viewModel.updateProduct()
+                        } else {
+                            viewModel.addProduct()
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),
@@ -416,7 +422,7 @@ fun AddProductScreen(
                         )
                     } else {
                         Text(
-                            text = "Agregar Producto",
+                            text = if (uiState.isEditMode) "Actualizar Producto" else "Agregar Producto",
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )

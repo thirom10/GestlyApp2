@@ -149,6 +149,9 @@ fun MainScreen(
                     viewModel = productViewModel,
                     onNavigateToAddProduct = {
                         navController.navigate("add_product")
+                    },
+                    onNavigateToEditProduct = { productId ->
+                        navController.navigate("edit_product/$productId")
                     }
                 )
             }
@@ -156,6 +159,21 @@ fun MainScreen(
                 AddProductScreen(
                     viewModel = productViewModel,
                     onNavigateBack = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable("edit_product/{productId}") { backStackEntry ->
+                val productId = backStackEntry.arguments?.getString("productId") ?: ""
+                LaunchedEffect(productId) {
+                    if (productId.isNotEmpty()) {
+                        productViewModel.loadProductForEdit(productId)
+                    }
+                }
+                AddProductScreen(
+                    viewModel = productViewModel,
+                    onNavigateBack = {
+                        productViewModel.clearForm()
                         navController.popBackStack()
                     }
                 )

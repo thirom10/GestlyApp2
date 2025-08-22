@@ -31,9 +31,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 private val RegisterUiState.successMessage: String?
-    get() {
-        TODO()
-    }
+    get() = if (isRegistrationSuccessful) "¡Registro exitoso!" else null
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

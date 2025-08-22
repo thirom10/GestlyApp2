@@ -37,7 +37,8 @@ import java.util.Locale
 @Composable
 fun ProductsScreen(
     viewModel: ProductViewModel,
-    onNavigateToAddProduct: () -> Unit
+    onNavigateToAddProduct: () -> Unit,
+    onNavigateToEditProduct: (String) -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val focusManager = LocalFocusManager.current
@@ -195,7 +196,8 @@ fun ProductsScreen(
                                 cardBackground = cardBackground,
                                 textColor = textColor,
                                 primaryBlue = primaryBlue,
-                                hintColor = hintColor
+                                hintColor = hintColor,
+                                onEditProduct = { onNavigateToEditProduct(product.id) }
                             )
                         }
                         
@@ -288,14 +290,15 @@ private fun ProductCard(
     cardBackground: Color,
     textColor: Color,
     primaryBlue: Color,
-    hintColor: Color
+    hintColor: Color,
+    onEditProduct: () -> Unit
 ) {
     val numberFormat = NumberFormat.getCurrencyInstance(Locale("es", "CO"))
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* TODO: Navegar a detalles del producto */ },
+            .clickable { onEditProduct() },
         colors = CardDefaults.cardColors(
             containerColor = cardBackground
         ),
