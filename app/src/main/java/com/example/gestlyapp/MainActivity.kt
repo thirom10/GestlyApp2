@@ -28,7 +28,6 @@ import com.example.gestlyapp.data.cache.MemoryOptimizer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-
 import com.example.gestlyapp.ui.feactures.login.LoginScreen
 import com.example.gestlyapp.ui.feactures.login.LoginViewModel
 import com.example.gestlyapp.ui.feactures.register.RegisterScreen
@@ -57,22 +56,22 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AuthNavigation() {
     val context = LocalContext.current
-    
+
     // Crear instancias de los repositorios
     val firebaseDataSource = remember { FirebaseDataSource() }
     val sessionManager = remember { UserSessionManager(context) }
     val authRepository = remember { AuthRepository(firebaseDataSource, sessionManager) }
-    
+
     // Verificar si hay una sesión activa al iniciar
-    var currentScreen by remember { 
+    var currentScreen by remember {
         mutableStateOf(
             if (sessionManager.isUserLoggedIn()) "main" else "login"
         )
     }
-    
+
     // Crear instancias para productos con caché
     val firebaseProductDataSource = remember { FirebaseProductDataSource() }
-    val database = remember { 
+    val database = remember {
         Room.databaseBuilder(
             context,
             AppDatabase::class.java,
@@ -81,27 +80,27 @@ fun AuthNavigation() {
     }
     val productDao = remember { database.productDao() }
     val coroutineScope = remember { CoroutineScope(SupervisorJob() + Dispatchers.IO) }
-    val productRepository = remember { 
-        CachedProductRepository(firebaseProductDataSource, productDao, coroutineScope) 
+    val productRepository = remember {
+        CachedProductRepository(firebaseProductDataSource, productDao, coroutineScope)
     }
-    
+
     // Crear preloader
     val dataPreloader = remember { DataPreloader(productRepository, sessionManager, context) }
-    
+
     // Crear optimizador de memoria
     val memoryOptimizer = remember { MemoryOptimizer(context) }
-    
+
     // Registrar el repositorio con caché en el optimizador
     LaunchedEffect(productRepository) {
         memoryOptimizer.registerCachedRepository(productRepository)
     }
-    
+
     when (currentScreen) {
         "login" -> {
             val loginViewModel = viewModel<LoginViewModel> {
                 LoginViewModel(authRepository)
             }
-            
+
             LoginScreen(
                 viewModel = loginViewModel,
                 onNavigateToRegister = {
@@ -120,7 +119,7 @@ fun AuthNavigation() {
             val registerViewModel = viewModel<RegisterViewModel> {
                 RegisterViewModel(authRepository)
             }
-            
+
             RegisterScreen(
                 viewModel = registerViewModel,
                 onNavigateBack = {
@@ -138,18 +137,17 @@ fun AuthNavigation() {
             val productViewModel = viewModel<ProductViewModel> {
                 ProductViewModel(productRepository)
             }
-            
+
             // Iniciar preloading en background y optimización de memoria
             LaunchedEffect(Unit) {
                 dataPreloader.startPreloading()
                 memoryOptimizer.checkAndOptimizeIfNeeded()
             }
-            
+
             MainScreen(
                 productViewModel = productViewModel,
                 userName = authRepository.getCurrentUserName(),
                 onLogout = {
-                    // Cerrar sesión usando el repositorio
                     kotlinx.coroutines.runBlocking {
                         authRepository.signOut()
                     }

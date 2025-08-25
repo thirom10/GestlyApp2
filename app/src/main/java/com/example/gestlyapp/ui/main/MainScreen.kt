@@ -13,10 +13,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.gestlyapp.ui.feactures.home.HomeScreen
 import com.example.gestlyapp.ui.feactures.products.ProductsScreen
 import com.example.gestlyapp.ui.feactures.products.ProductViewModel
@@ -24,6 +26,9 @@ import com.example.gestlyapp.ui.feactures.products.AddProductScreen
 import com.example.gestlyapp.ui.feactures.reports.ReportsScreen
 import com.example.gestlyapp.ui.feactures.sell.SellScreen
 import com.example.gestlyapp.ui.feactures.user.UserScreen
+import com.example.gestlyapp.ui.feactures.user.screen.InfoScreen
+import com.example.gestlyapp.ui.feactures.user.screen.SubscriptionScreen
+import com.example.gestlyapp.ui.feactures.user.screen.ThemeScreen
 
 // Definir las rutas de navegación
 sealed class BottomNavItem(
@@ -38,6 +43,13 @@ sealed class BottomNavItem(
     object User : BottomNavItem("user", "Usuario", Icons.Filled.Person)
 }
 
+// Rutas para las pantallas de usuario
+object UserRoutes {
+    const val INFO = "user_info"
+    const val SUBSCRIPTION = "user_subscription"
+    const val THEME = "user_theme"
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
@@ -48,7 +60,7 @@ fun MainScreen(
     val navController = rememberNavController()
     val backgroundColor = Color(0xFF2C2C2C)
     val primaryBlue = Color(0xFF007AFF)
-    
+
     val items = listOf(
         BottomNavItem.Home,
         BottomNavItem.Products,
@@ -56,26 +68,71 @@ fun MainScreen(
         BottomNavItem.Reports,
         BottomNavItem.User
     )
-    
+
+    // Controlar la visibilidad del BottomNav
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentDestination = navBackStackEntry?.destination
+    val currentRoute = currentDestination?.route
+
+    // Ocultar BottomNav en pantallas de usuario secundarias
+    val showBottomBar = when (currentRoute) {
+        UserRoutes.INFO, UserRoutes.SUBSCRIPTION, UserRoutes.THEME -> false
+        else -> true
+    }
+
     Scaffold(
         bottomBar = {
-            BottomAppBar(
-                containerColor = Color(0xFF1C1C1E),
-                contentColor = primaryBlue,
-                modifier = Modifier.height(110.dp)
-            ) {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentDestination = navBackStackEntry?.destination
-                val currentRoute = currentDestination?.route
-
-                items.forEach { item ->
-                    if (item.route == "sell") {
-                        // Botón especial para "Vender"
-                        Box(
-                            modifier = Modifier.weight(1f),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            FloatingActionButton(
+            if (showBottomBar) {
+                BottomAppBar(
+                    containerColor = Color(0xFF1C1C1E),
+                    contentColor = primaryBlue,
+                    modifier = Modifier.height(110.dp)
+                ) {
+                    items.forEach { item ->
+                        if (item.route == "sell") {
+                            // Botón especial para "Vender"
+                            Box(
+                                modifier = Modifier.weight(1f),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                FloatingActionButton(
+                                    onClick = {
+                                        navController.navigate(item.route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
+                                    },
+                                    containerColor = primaryBlue,
+                                    contentColor = Color.White,
+                                    modifier = Modifier.size(56.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.title,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                }
+                            }
+                        } else {
+                            NavigationBarItem(
+                                icon = {
+                                    Icon(
+                                        imageVector = item.icon,
+                                        contentDescription = item.title,
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                },
+                                label = {
+                                    Text(
+                                        text = item.title,
+                                        fontSize = 12.sp,
+                                        fontWeight = if (currentRoute == item.route) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                selected = currentRoute == item.route,
                                 onClick = {
                                     navController.navigate(item.route) {
                                         popUpTo(navController.graph.findStartDestination().id) {
@@ -85,51 +142,15 @@ fun MainScreen(
                                         restoreState = true
                                     }
                                 },
-                                containerColor = primaryBlue,
-                                contentColor = Color.White,
-                                modifier = Modifier.size(56.dp)
-                            ) {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.title,
-                                    modifier = Modifier.size(28.dp)
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = primaryBlue,
+                                    selectedTextColor = primaryBlue,
+                                    unselectedIconColor = Color(0xFF8E8E93),
+                                    unselectedTextColor = Color(0xFF8E8E93),
+                                    indicatorColor = Color.Transparent
                                 )
-                            }
-                        }
-                    } else {
-                        NavigationBarItem(
-                            icon = {
-                                Icon(
-                                    imageVector = item.icon,
-                                    contentDescription = item.title,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            },
-                            label = {
-                                Text(
-                                    text = item.title,
-                                    fontSize = 12.sp,
-                                    fontWeight = if (currentRoute == item.route) FontWeight.Bold else FontWeight.Normal
-                                )
-                            },
-                            selected = currentRoute == item.route,
-                            onClick = {
-                                navController.navigate(item.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
-                                    }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = primaryBlue,
-                                selectedTextColor = primaryBlue,
-                                unselectedIconColor = Color(0xFF8E8E93),
-                                unselectedTextColor = Color(0xFF8E8E93),
-                                indicatorColor = Color.Transparent
                             )
-                        )
+                        }
                     }
                 }
             }
@@ -185,7 +206,23 @@ fun MainScreen(
                 ReportsScreen()
             }
             composable(BottomNavItem.User.route) {
-                UserScreen(onLogout = onLogout)
+                UserScreen(
+                    onLogout = onLogout,
+                    onOpenInfo = { navController.navigate(UserRoutes.INFO) },
+                    onOpenSubscription = { navController.navigate(UserRoutes.SUBSCRIPTION) },
+                    onOpenTheme = { navController.navigate(UserRoutes.THEME) }
+                )
+            }
+
+            // Pantallas de usuario (ocultan el BottomNav)
+            composable(UserRoutes.INFO) {
+                InfoScreen(onBack = { navController.popBackStack() })
+            }
+            composable(UserRoutes.SUBSCRIPTION) {
+                SubscriptionScreen(onBack = { navController.popBackStack() })
+            }
+            composable(UserRoutes.THEME) {
+                ThemeScreen(onBack = { navController.popBackStack() })
             }
         }
     }
